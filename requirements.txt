@@ -3,4 +3,6 @@ faiss-cpu
 numpy
 python-dotenv
 google-genai
-sentence-transformers
+sentence-transformers==2.2.2
+transformers==4.38.2
+torch
