@@ -1,0 +1,6 @@
+.env
+.venv/
+.venv-tmp/
+__pycache__/
+*.index
+chunk_store.json
