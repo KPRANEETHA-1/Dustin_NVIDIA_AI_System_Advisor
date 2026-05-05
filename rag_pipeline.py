@@ -1,4 +1,52 @@
-﻿"""RAG pipeline for NVIDIA AI Advisor: retrieval, grounding, generation, and output formatting."""
+﻿"""
+NVIDIA AI Advisor — RAG Pipeline v2
+=====================================
+Upgrades over v1 (retrieval logic unchanged):
+
+  LAYER 1 — GROUNDING RULES
+    System prompt now has strict anti-hallucination rules:
+    Claude must answer only from context, never invent, must signal
+    when context is insufficient.
+
+  LAYER 2 — RETRIEVAL QUALITY CHECK
+    Before calling the LLM, we check if retrieved chunks are actually
+    relevant. If the best similarity score is too low, we skip the LLM
+    call entirely and return a "not found" response. No wasted API calls
+    on irrelevant retrievals.
+
+  LAYER 3 — ANSWER FORMATTING
+    raw_answer from Claude → format_answer() → clean structured output
+    Separates answer body from sources. Consistent every time.
+
+  LAYER 4 — DUSTIN TONE
+    format_answer() → apply_dustin_tone() → final human-friendly output
+    Dustin Henderson (Stranger Things) personality layer: 80% professional,
+    20% conversational warmth. Does NOT change facts. Does NOT add info.
+    Is a pure UX transformation — same answer, more approachable delivery.
+
+  LAYER 5 — OUTPUT MODES
+    DEBUG mode: shows similarity scores, chunk previews, raw answer
+    USER mode : shows only final answer + sources (default)
+
+NEW PIPELINE FLOW:
+  User question
+      ↓  embed (MiniLM)            ← UNCHANGED
+  Query vector
+      ↓  FAISS search + routing    ← UNCHANGED
+  Retrieved chunks
+      ↓  quality_check()           ← NEW: gate before LLM
+  Augmented prompt (grounding rules) ← NEW: stronger system prompt
+      ↓  Claude API
+  raw_answer
+      ↓  format_answer()           ← NEW: structure extraction
+  formatted_answer
+      ↓  apply_dustin_tone()       ← NEW: personality layer
+  final_output
+      ↓  print_output(mode)        ← NEW: debug vs user mode
+
+DO NOT MODIFY: load_artifacts(), retrieve_chunks(), detect_source()
+MODIFY FREELY:  everything below the "GENERATION + UX LAYERS" marker
+"""
 
 import os
 import re
@@ -15,15 +63,26 @@ from dataclasses import dataclass
 
 load_dotenv()
 
+# ─────────────────────────────────────────────────────────────────────────────
+# CONFIGURATION
+# ─────────────────────────────────────────────────────────────────────────────
+
 SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
 INDEX_PATH   = os.path.join(SCRIPT_DIR, "faiss_index.index")
 STORE_PATH   = os.path.join(SCRIPT_DIR, "chunk_store.json")
+# gemini-2.5-flash-lite: fast, free tier available, great for RAG Q&A.
+# Free tier: 15 requests/min, 1 million tokens/day — more than enough.
 GEMINI_MODEL = "gemini-2.5-flash-lite"
-TOP_K  = 3
+TOP_K        = 3
 
-# Minimum cosine score required before we call the LLM.
+# LAYER 2 — Retrieval quality threshold
+# Cosine similarity below this = retrieved chunks are not relevant enough.
+# 0.25 is calibrated for MiniLM on technical domain queries.
+# Raise to 0.35 for stricter filtering. Lower to 0.15 for more permissive.
 QUALITY_THRESHOLD = 0.25
 
+# Output mode: "user" (default, clean output) or "debug" (full diagnostics)
+# Change to "debug" when developing / testing retrieval quality
 OUTPUT_MODE = "user"
 
 TOOL_KEYWORDS = {
@@ -38,7 +97,8 @@ TOOL_KEYWORDS = {
                  "build phase", "runtime phase", "precision"],
 }
 
-# NVIDIA topics outside the local NeMo/Triton/TensorRT knowledge base.
+# NVIDIA-adjacent keywords — user is asking about NVIDIA broadly
+# but NOT about the 3 tools we have docs for
 NVIDIA_ADJACENT_KEYWORDS = [
     "nvidia", "cuda", "gpu", "jetson", "drive", "omniverse", "isaac",
     "rapids", "cudf", "cuml", "merlin", "riva", "maxine", "broadcast",
@@ -46,8 +106,17 @@ NVIDIA_ADJACENT_KEYWORDS = [
     "nim", "nvcf", "ai enterprise", "base command", "fleet command",
 ]
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CONVERSATIONAL + NVIDIA-ADJACENT DETECTION
+# ─────────────────────────────────────────────────────────────────────────────
+
 def is_conversational(query: str) -> bool:
-    """Return True for greetings, thanks, goodbyes, and casual chat."""
+    """
+    Detects greetings, goodbyes, thanks, casual chat.
+    These bypass quality gate — LLM handles them naturally as Dustin.
+    No hardcoded responses. The model reads the intent and replies freely.
+    """
     q = query.lower().strip()
     patterns = [
         "hi", "hey", "hello", "greetings", "howdy", "yo", "sup",
@@ -62,23 +131,31 @@ def is_conversational(query: str) -> bool:
 
 
 def is_nvidia_adjacent(query: str) -> bool:
-    """Return True for NVIDIA queries outside the three indexed tools."""
+    """
+    Detects NVIDIA-related queries outside our 3-tool knowledge base.
+    Only triggers if the query does NOT already match NeMo/Triton/TensorRT
+    keywords — those go through the normal retrieval pipeline.
+    """
     q = query.lower()
     all_tool_kws = [kw for kws in TOOL_KEYWORDS.values() for kw in kws]
     if any(kw in q for kw in all_tool_kws):
-        return False
+        return False   # already handled by main pipeline
     return any(kw in q for kw in NVIDIA_ADJACENT_KEYWORDS)
 
 
 def handle_conversational(query: str, mode: str, client) -> "PipelineOutput":
-    """Handle conversational prompts without retrieval."""
+    """
+    Routes conversational queries to Gemini with a pure Dustin persona.
+    No retrieval context. Model responds naturally to the greeting/goodbye.
+    Lightweight prompt — minimal quota usage.
+    """
     dustin_persona = """You are Dustin Henderson from Stranger Things.
 You are enthusiastic, warm, and genuinely excited about technology.
-You are acting as an AI assistant called the NVIDIA AI System Advisor â€”
+You are acting as an AI assistant called the NVIDIA AI System Advisor —
 you help users understand NeMo Platform, Triton Inference Server, and TensorRT.
 
 The user is greeting you, saying goodbye, thanking you, or just chatting.
-Respond naturally as Dustin would â€” warm, a little excitable, genuine.
+Respond naturally as Dustin would — warm, a little excitable, genuine.
 Keep it brief (2-4 sentences max).
 If greeting: respond warmly and mention you can help with the NVIDIA AI stack.
 If goodbye/thanks: respond warmly and sign off as Dustin would naturally.
@@ -103,13 +180,17 @@ Do NOT lecture. Do NOT list features. Just be natural."""
 
 
 def handle_nvidia_adjacent(query: str, mode: str, client) -> "PipelineOutput":
-    """Redirect NVIDIA-adjacent questions outside the local knowledge base."""
+    """
+    Routes NVIDIA-adjacent queries to Gemini with a redirect prompt.
+    Dustin acknowledges the question, is honest about his scope,
+    and naturally points to NVIDIA official docs with the link.
+    """
     dustin_redirect = """You are Dustin Henderson from Stranger Things,
 acting as the NVIDIA AI System Advisor. Your specific knowledge base covers:
 NeMo Platform, Triton Inference Server, and TensorRT / TensorRT-LLM.
 
 The user asked an NVIDIA-related question outside your specific knowledge base.
-Respond as Dustin â€” acknowledge it is a great question, be honest that it is
+Respond as Dustin — acknowledge it is a great question, be honest that it is
 outside your specific docs, and enthusiastically redirect them to NVIDIA's
 official documentation. Include this link naturally: https://docs.nvidia.com
 
@@ -133,12 +214,17 @@ official documentation. Include this link naturally: https://docs.nvidia.com
     )
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# DATA CLASSES
+# Two clean containers that flow through the pipeline stages.
+# ─────────────────────────────────────────────────────────────────────────────
+
 @dataclass
 class RetrievalResult:
     """
     Output of the retrieval stage. Passed to the generation stage.
     Keeping this as a dataclass means every downstream function gets a
-    predictable, typed object â€” no dict key typos, no missing fields.
+    predictable, typed object — no dict key typos, no missing fields.
     """
     chunks:        list[dict]    # retrieved chunk objects with similarity scores
     top_score:     float         # highest similarity score among retrieved chunks
@@ -155,15 +241,18 @@ class PipelineOutput:
     show different amounts of detail in debug vs user mode.
     """
     query:            str
-    raw_answer:       str
-    formatted_answer: str
-    final_answer:     str
+    raw_answer:       str          # exactly what Claude returned
+    formatted_answer: str          # after format_answer() — clean structure
+    final_answer:     str          # after apply_dustin_tone() — human-friendly
     sources:          list[dict]   # list of {section, source, doc_link} dicts
     retrieval:        RetrievalResult
     mode:             str          # "user" or "debug"
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# ── UNCHANGED: RETRIEVAL LAYER ────────────────────────────────────────────────
 # Do NOT modify these functions. They are stable and tested.
+# ═══════════════════════════════════════════════════════════════════════════════
 
 def load_artifacts() -> tuple:
     """Loads FAISS index, chunk store, and embedding model at startup."""
@@ -174,7 +263,7 @@ def load_artifacts() -> tuple:
             f"faiss_index.index not found.\nRun embedder.py first."
         )
     index = faiss.read_index(INDEX_PATH)
-    print(f"  âœ… FAISS index     ({index.ntotal} vectors)")
+    print(f"  ✅ FAISS index     ({index.ntotal} vectors)")
 
     if not os.path.exists(STORE_PATH):
         raise FileNotFoundError(
@@ -185,11 +274,11 @@ def load_artifacts() -> tuple:
 
     chunks   = chunk_store["chunks"]
     metadata = chunk_store["metadata"]
-    print(f"  âœ… Chunk store     ({len(chunks)} chunks)")
+    print(f"  ✅ Chunk store     ({len(chunks)} chunks)")
 
     model_name  = metadata["model_name"]
     embed_model = SentenceTransformer(model_name, trust_remote_code=True)
-    print(f"  âœ… Embedding model ({model_name})")
+    print(f"  ✅ Embedding model ({model_name})")
 
     return index, chunks, embed_model, metadata
 
@@ -265,9 +354,13 @@ def retrieve_chunks(
     )
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# ── NEW: GENERATION + UX LAYERS ───────────────────────────────────────────────
 # All modifications go below this line.
+# ═══════════════════════════════════════════════════════════════════════════════
 
 
+# ── LAYER 2: RETRIEVAL QUALITY CHECK ─────────────────────────────────────────
 
 def quality_check(retrieval: RetrievalResult) -> RetrievalResult:
     """
@@ -280,20 +373,21 @@ def quality_check(retrieval: RetrievalResult) -> RetrievalResult:
     pass them to Claude as context, and generate a confidently wrong answer
     that mixes pizza with TensorRT. That's the classic RAG hallucination pattern.
 
-    With the gate: low score â†’ passed_check=False â†’ pipeline returns a
+    With the gate: low score → passed_check=False → pipeline returns a
     "not in my knowledge base" response immediately. No LLM call, no cost,
     no hallucination.
 
     SCORE INTERPRETATION (MiniLM cosine similarity):
-      > 0.50  = strong match â€” chunk is clearly relevant
-      0.35-0.50 = good match â€” chunk is relevant
-      0.25-0.35 = weak match â€” chunk is marginally relevant
-      < 0.25  = no match â€” query is outside the knowledge base
+      > 0.50  = strong match — chunk is clearly relevant
+      0.35-0.50 = good match — chunk is relevant
+      0.25-0.35 = weak match — chunk is marginally relevant
+      < 0.25  = no match — query is outside the knowledge base
     """
     retrieval.passed_check = retrieval.top_score >= QUALITY_THRESHOLD
     return retrieval
 
 
+# ── LAYER 1: GROUNDING RULES IN SYSTEM PROMPT ────────────────────────────────
 
 def build_grounded_prompt(query: str, retrieval: RetrievalResult) -> tuple[str, str]:
     """
@@ -301,7 +395,7 @@ def build_grounded_prompt(query: str, retrieval: RetrievalResult) -> tuple[str, 
 
     V1 vs V2 system prompt difference:
     V1: "Base your answer primarily on the provided context"
-        (soft â€” Claude could still supplement from training)
+        (soft — Claude could still supplement from training)
 
     V2: Explicit numbered rules with hard constraints:
         - Must cite which context section you used
@@ -310,7 +404,7 @@ def build_grounded_prompt(query: str, retrieval: RetrievalResult) -> tuple[str, 
         - Forbidden from speculating about version numbers, pricing, roadmaps
 
     WHY STRICT RULES MATTER:
-    LLMs have a strong prior toward being helpful â€” they'll answer even when
+    LLMs have a strong prior toward being helpful — they'll answer even when
     they shouldn't. Without hard rules, Claude might blend retrieved context
     with training knowledge in a way that's undetectable. For a technical
     advisor system, a confidently wrong answer is worse than "I don't know."
@@ -328,50 +422,51 @@ def build_grounded_prompt(query: str, retrieval: RetrievalResult) -> tuple[str, 
 
     context_text = "\n\n".join(context_blocks)
 
-    system_prompt = f"""You are the NVIDIA AI System Advisor â€” a precise technical assistant \
+    system_prompt = f"""You are the NVIDIA AI System Advisor — a precise technical assistant \
 for the NVIDIA AI ecosystem (NeMo Platform, Triton Inference Server, TensorRT / TensorRT-LLM).
 
-â”â”â” GROUNDING RULES (non-negotiable) â”â”â”
+━━━ GROUNDING RULES (non-negotiable) ━━━
 
-RULE 1 â€” CONTEXT FIRST
+RULE 1 — CONTEXT FIRST
 Your answer must be grounded in the provided CONTEXT SECTIONS below.
-Use your general knowledge only to explain terminology â€” never as the primary source.
+Use your general knowledge only to explain terminology — never as the primary source.
 
-RULE 2 â€” CITE YOUR SOURCES
+RULE 2 — CITE YOUR SOURCES
 End every answer with a "Sources Used:" section listing which [CONTEXT N] blocks
 you drew from, with their section name and doc link.
 
-RULE 3 â€” ADMIT GAPS HONESTLY
+RULE 3 — ADMIT GAPS HONESTLY
 If the provided context does not fully answer the question, say:
 "The provided documentation does not cover [topic]. For complete information, see [doc_link]."
 Do NOT speculate or fill gaps with assumed knowledge.
 
-RULE 4 â€” FORBIDDEN CONTENT
+RULE 4 — FORBIDDEN CONTENT
 Never state specific version numbers, pricing, release dates, or roadmap items
 unless they appear verbatim in the provided context sections.
 
-RULE 5 â€” TOOL RECOMMENDATIONS
+RULE 5 — TOOL RECOMMENDATIONS
 If the question asks which tool to use, give a clear recommendation with reasoning
 drawn ONLY from the context. Do not recommend tools not mentioned in the context.
 
-â”â”â” CONTEXT SECTIONS â”â”â”
+━━━ CONTEXT SECTIONS ━━━
 
 {context_text}
 
-â”â”â” ANSWER FORMAT â”â”â”
+━━━ ANSWER FORMAT ━━━
 
 Structure your response as:
 ANSWER:
-[your answer here â€” concise, technically precise, grounded in context]
+[your answer here — concise, technically precise, grounded in context]
 
 SOURCES USED:
-- [CONTEXT N] â€” Section name â€” doc link
+- [CONTEXT N] — Section name — doc link
 (list every context section you referenced)"""
 
     user_message = f"Question: {query}"
     return system_prompt, user_message
 
 
+# ── LAYER 3: ANSWER FORMATTING ────────────────────────────────────────────────
 
 def format_answer(raw_answer: str, retrieval: RetrievalResult) -> tuple[str, list[dict]]:
     """
@@ -384,7 +479,7 @@ def format_answer(raw_answer: str, retrieval: RetrievalResult) -> tuple[str, lis
     - Inconsistent line breaks
 
     By parsing here, we ensure the downstream Dustin tone layer only sees
-    the clean answer text â€” not the sources block â€” and we produce a
+    the clean answer text — not the sources block — and we produce a
     machine-readable sources list that the display layer can render
     consistently regardless of how Claude formatted it.
 
@@ -394,6 +489,7 @@ def format_answer(raw_answer: str, retrieval: RetrievalResult) -> tuple[str, lis
     Falls back gracefully if Claude didn't follow the format exactly.
     """
 
+    # ── Split answer body from sources block ─────────────────────────────────
     sources_marker = "SOURCES USED:"
     answer_marker  = "ANSWER:"
 
@@ -402,7 +498,7 @@ def format_answer(raw_answer: str, retrieval: RetrievalResult) -> tuple[str, lis
         answer_body  = parts[0].strip()
         sources_text = parts[1].strip()
     else:
-        # Claude didn't include sources section â€” use full response as answer
+        # Claude didn't include sources section — use full response as answer
         answer_body  = raw_answer.strip()
         sources_text = ""
 
@@ -410,6 +506,7 @@ def format_answer(raw_answer: str, retrieval: RetrievalResult) -> tuple[str, lis
     if answer_marker in answer_body:
         answer_body = answer_body.split(answer_marker, 1)[1].strip()
 
+    # ── Build structured sources list from retrieval result ───────────────────
     # We use the retrieval result directly (ground truth) rather than parsing
     # Claude's sources text, which could be incomplete or malformatted.
     sources = []
@@ -424,6 +521,7 @@ def format_answer(raw_answer: str, retrieval: RetrievalResult) -> tuple[str, lis
     return answer_body.strip(), sources
 
 
+# ── LAYER 4: DUSTIN TONE ──────────────────────────────────────────────────────
 
 def apply_dustin_tone(formatted_answer: str, client=None) -> str:
     """
@@ -434,17 +532,17 @@ def apply_dustin_tone(formatted_answer: str, client=None) -> str:
     rewrites the tone while preserving every factual detail.
 
     DUSTIN TONE RULES (enforced in the prompt):
-    1. Do NOT change factual meaning â€” same information, different voice
-    2. Do NOT add new information â€” zero hallucination risk
-    3. Keep explanation clear and structured â€” no sacrifice of clarity
-    4. Add light conversational phrasing â€” 1-2 sentences max per section
-    5. Use analogies sparingly â€” only when they genuinely help
+    1. Do NOT change factual meaning — same information, different voice
+    2. Do NOT add new information — zero hallucination risk
+    3. Keep explanation clear and structured — no sacrifice of clarity
+    4. Add light conversational phrasing — 1-2 sentences max per section
+    5. Use analogies sparingly — only when they genuinely help
     6. No excessive slang, emojis, or over-casual language
     7. 80% professional, 20% personality
 
     WHY A SEPARATE API CALL FOR TONE?
     Doing tone transformation in the same call as retrieval + grounding
-    creates conflicting objectives â€” the grounding rules say "be precise"
+    creates conflicting objectives — the grounding rules say "be precise"
     while the tone rules say "be conversational". Separating them lets each
     Claude call do one job perfectly. The cost is one extra API call, but
     the quality difference is significant.
@@ -456,23 +554,27 @@ def apply_dustin_tone(formatted_answer: str, client=None) -> str:
 
     tone_system = """You are applying a light personality layer to a technical answer.
 
-The character is Dustin Henderson from Stranger Things â€” enthusiastic, smart, 
+The character is Dustin Henderson from Stranger Things — enthusiastic, smart, 
 uses clear analogies when helpful, genuinely excited about technology, but 
 fundamentally a precise and reliable explainer.
 
-STRICT RULES â€” violating these is not allowed:
-1. DO NOT change any factual content â€” same facts, same structure
-2. DO NOT add any new information â€” zero additions
-3. DO NOT remove any technical detail â€” keep everything
+STRICT RULES — violating these is not allowed:
+1. DO NOT change any factual content — same facts, same structure
+2. DO NOT add any new information — zero additions
+3. DO NOT remove any technical detail — keep everything
 4. ADD only: a warm opening phrase, occasional "here's the thing" transitions,
    one light analogy per section if it genuinely helps understanding
 5. NO excessive slang, NO emojis, NO "dude/bro/man" more than once total
 6. 80% of words must be the original professional content
 7. Keep all section headers and the answer structure intact
-8. Sources section: leave completely unchanged â€” do not touch it
+8. Sources section: leave completely unchanged — do not touch it
 
 Transform the tone, not the content."""
 
+    # Gemini API: genai.GenerativeModel wraps the model.
+    # generate_content() takes a single string — we combine system + user
+    # into one prompt since Gemini's basic API doesn't have separate roles.
+    # response.text → the generated string.
     response = client.models.generate_content(
         model=GEMINI_MODEL,
         contents=f"Apply Dustin tone to this answer:\n\n{formatted_answer}",
@@ -483,6 +585,7 @@ Transform the tone, not the content."""
     return response.text.strip()
 
 
+# ── LAYER 5: OUTPUT MODES ─────────────────────────────────────────────────────
 
 def print_output(output: PipelineOutput) -> None:
     """
@@ -502,58 +605,63 @@ def print_output(output: PipelineOutput) -> None:
       Or pass mode="debug" when constructing PipelineOutput
     """
     mode = output.mode
-    print("\n" + "â•" * 64)
-    print(f"  {'ðŸ”§ DEBUG MODE' if mode == 'debug' else 'ðŸ’¬ NVIDIA AI Advisor'}")
+    print("\n" + "═" * 64)
+    print(f"  {'🔧 DEBUG MODE' if mode == 'debug' else '💬 NVIDIA AI Advisor'}")
     print(f"  Q: {output.query}")
-    print("â•" * 64)
+    print("═" * 64)
 
+    # ── DEBUG: show retrieval diagnostics ────────────────────────────────────
     if mode == "debug":
         r = output.retrieval
         print(f"\n  RETRIEVAL DIAGNOSTICS")
-        print(f"  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€")
+        print(f"  ─────────────────────")
         print(f"  Detected tool  : {r.detected_tool or 'None (general query)'}")
         print(f"  Top score      : {r.top_score:.4f}  "
-              f"{'âœ… passed' if r.passed_check else 'âŒ failed'} "
+              f"{'✅ passed' if r.passed_check else '❌ failed'} "
               f"(threshold: {QUALITY_THRESHOLD})")
 
         print(f"\n  Retrieved chunks:")
         for i, chunk in enumerate(r.chunks, 1):
             score   = chunk.get("similarity_score", 0)
             bar_len = min(int(score * 20), 20)
-            bar     = "â–ˆ" * bar_len + "â–‘" * (20 - bar_len)
+            bar     = "█" * bar_len + "░" * (20 - bar_len)
             print(f"\n  #{i}  [{chunk['chunk_id']}]  score={score:.4f}  {bar}")
             print(f"       Source  : {chunk['source'].upper()}")
             print(f"       Section : {chunk['section']}")
             print(f"       Preview : {chunk['content'][:120].replace(chr(10), ' ')}...")
 
-        print(f"\n  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€")
+        print(f"\n  ─────────────────────")
         print(f"  RAW ANSWER (from Claude, before formatting):\n")
         for line in output.raw_answer.split("\n"):
             print(f"    {line}")
 
-        print(f"\n  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€")
+        print(f"\n  ─────────────────────")
         print(f"  FORMATTED ANSWER (after format_answer(), before tone):\n")
         for line in output.formatted_answer.split("\n"):
             print(f"    {line}")
 
-        print(f"\n  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€")
+        print(f"\n  ─────────────────────")
         print(f"  FINAL ANSWER (after apply_dustin_tone()):\n")
 
+    # ── BOTH MODES: show final answer ─────────────────────────────────────────
     print()
     for line in output.final_answer.split("\n"):
         print(f"  {line}")
 
-    print(f"\n  {'â”€' * 60}")
+    # ── BOTH MODES: show sources ──────────────────────────────────────────────
+    print(f"\n  {'─' * 60}")
     print(f"  SOURCES")
     for src in output.sources:
         score_indicator = f"(score: {src['score']:.2f})" if mode == "debug" else ""
-        print(f"  â€¢ [{src['source']}] {src['section']} {score_indicator}")
+        print(f"  • [{src['source']}] {src['section']} {score_indicator}")
         print(f"    {src['doc_link']}")
 
-    print("\n" + "â•" * 64)
+    print("\n" + "═" * 64)
 
 
-# NOT-FOUND RESPONSE â€” returned when quality check fails
+# ─────────────────────────────────────────────────────────────────────────────
+# NOT-FOUND RESPONSE — returned when quality check fails
+# ─────────────────────────────────────────────────────────────────────────────
 
 def not_found_output(query: str, retrieval: RetrievalResult, mode: str) -> PipelineOutput:
     """
@@ -567,9 +675,9 @@ def not_found_output(query: str, retrieval: RetrievalResult, mode: str) -> Pipel
         f"which is below my confidence threshold of {QUALITY_THRESHOLD}.\n\n"
         "Try rephrasing with specific tool names like 'NeMo', 'Triton', or 'TensorRT', "
         "or check the official docs directly:\n"
-        "â€¢ NeMo    : https://docs.nvidia.com/nemo-framework/user-guide/latest/index.html\n"
-        "â€¢ Triton  : https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/index.html\n"
-        "â€¢ TensorRT: https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html"
+        "• NeMo    : https://docs.nvidia.com/nemo-framework/user-guide/latest/index.html\n"
+        "• Triton  : https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/index.html\n"
+        "• TensorRT: https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html"
     )
     return PipelineOutput(
         query=query,
@@ -582,32 +690,60 @@ def not_found_output(query: str, retrieval: RetrievalResult, mode: str) -> Pipel
     )
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
 # MASTER PIPELINE FUNCTION
+# ═══════════════════════════════════════════════════════════════════════════════
 
 def run_pipeline(
     query: str,
     index: faiss.Index,
     chunks: list[dict],
     embed_model: SentenceTransformer,
-    client,
+    client: None,  # not used — Gemini uses genai.GenerativeModel() per call
     mode: str = OUTPUT_MODE,
 ) -> PipelineOutput:
-    """Run retrieval, grounding, generation, formatting, and tone."""
+    """
+    Runs the full RAG pipeline for a single query.
 
+    STAGE ORDER (with reasons):
+
+    1. retrieve_chunks()      — get candidate chunks from FAISS
+    2. quality_check()        — gate: is this query answerable from our docs?
+    3. build_grounded_prompt()— inject chunks + strict grounding rules
+    4. generate (Claude API)  — get raw answer grounded in context
+    5. format_answer()        — split answer body from sources, clean up
+    6. apply_dustin_tone()    — transform tone without touching facts
+    7. return PipelineOutput  — clean container for the display layer
+
+    If stage 2 fails, we skip stages 3-6 entirely and return not_found_output().
+    """
+
+    # ── Pre-stage: conversational detection ─────────────────────────────────
+    # Greetings, goodbyes, thanks → skip retrieval entirely.
+    # LLM responds naturally as Dustin. No quality gate. No chunks needed.
     if is_conversational(query):
         return handle_conversational(query, mode, client)
 
+    # ── Pre-stage: NVIDIA-adjacent detection ────────────────────────────────
+    # Query is about NVIDIA broadly but outside NeMo/Triton/TensorRT scope.
+    # Dustin redirects naturally to official NVIDIA docs with the link.
     if is_nvidia_adjacent(query):
         return handle_nvidia_adjacent(query, mode, client)
 
+    # Stage 1 — Retrieve
     retrieval = retrieve_chunks(query, index, chunks, embed_model)
 
+    # Stage 2 — Quality gate
     retrieval = quality_check(retrieval)
     if not retrieval.passed_check:
         return not_found_output(query, retrieval, mode)
 
+    # Stage 3 — Build grounded prompt
     system_prompt, user_message = build_grounded_prompt(query, retrieval)
 
+    # Stage 4 — Generate raw answer
+    # Gemini: system_instruction sets grounding rules, generate_content()
+    # takes the user message. response.text → the answer string.
     raw_answer = client.models.generate_content(
         model=GEMINI_MODEL,
         contents=user_message,
@@ -616,8 +752,10 @@ def run_pipeline(
         )
     ).text
 
+    # Stage 5 — Format answer
     formatted_answer, sources = format_answer(raw_answer, retrieval)
 
+    # Stage 6 — Apply Dustin tone
     final_answer = apply_dustin_tone(formatted_answer, client)
 
     return PipelineOutput(
@@ -631,11 +769,14 @@ def run_pipeline(
     )
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# MAIN
+# ═══════════════════════════════════════════════════════════════════════════════
 
 def main():
     print("=" * 64)
     print("  NVIDIA AI System Advisor v2")
-    print("  MiniLM + FAISS + Gemini 2.5 Flash Lite + Dustin")
+    print("  MiniLM + FAISS + Gemini 1.5 Flash + Dustin")
     print(f"  Mode: {OUTPUT_MODE.upper()}")
     print("=" * 64)
 
@@ -647,25 +788,26 @@ def main():
             "Get your free key at: https://aistudio.google.com\n"
         )
 
-    # Reuse one Gemini client for all generation calls.
+    # Configure Gemini globally — all genai.GenerativeModel() calls
+    # automatically use this key after this line.
     client = genai.Client(api_key=api_key)
 
     # Load all artifacts at startup
     index, chunks, embed_model, _ = load_artifacts()
-    print(f"\n  âœ… Gemini ready  ({GEMINI_MODEL})")
+    print(f"\n  ✅ Gemini ready  ({GEMINI_MODEL})")
 
     # Demo queries
     demo_queries = [
         "What is NeMo Platform and when should I use it?",
         "How does Triton handle dynamic batching?",
         "What is the difference between NeMo, Triton, and TensorRT?",
-        "How do I make a pizza?",   # â† intentional out-of-domain query to test quality gate
+        "How do I make a pizza?",   # ← intentional out-of-domain query to test quality gate
     ]
 
     print("\n" + "=" * 64)
     print("  DEMO QUERIES")
     print("=" * 64)
-    
+
     for query in demo_queries:
         print(f"\n  Running: \"{query}\"")
         output = run_pipeline(query, index, chunks, embed_model, client, mode=OUTPUT_MODE)
@@ -684,7 +826,7 @@ def main():
         if not query:
             continue
         if query.lower() in ("exit", "quit", "q"):
-            print("\n  Later! â€” Dustin")
+            print("\n  Later! — Dustin")
             break
 
         output = run_pipeline(query, index, chunks, embed_model, client, mode=OUTPUT_MODE)
@@ -693,8 +835,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-

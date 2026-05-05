@@ -569,17 +569,25 @@ for k, v in defaults.items():
         st.session_state[k] = v
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# CACHED ARTIFACT LOADER
-# ═══════════════════════════════════════════════════════════════════════════════
-
 @st.cache_resource(show_spinner=False)
 def get_artifacts():
-    api_key = os.environ.get("GEMINI_API_KEY")
+    import os
+    import streamlit as st
+
+    api_key = None
+
+    # ✅ Try Streamlit secrets safely
+    try:
+        api_key = st.secrets["GEMINI_API_KEY"]
+    except Exception:
+        api_key = os.environ.get("GEMINI_API_KEY")
+
     if not api_key:
         return None, None, None, None, None
+
     client = genai.Client(api_key=api_key)
     index, chunks, embed_model, metadata = load_artifacts()
+
     return index, chunks, embed_model, metadata, client
 
 
