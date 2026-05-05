@@ -1,4 +1,21 @@
-﻿"""Streamlit chat UI for the NVIDIA AI System Advisor."""
+﻿"""
+NVIDIA AI System Advisor — Streamlit Chat UI (v2)
+==================================================
+Enhanced version with:
+  1. Styled response cards with type labels
+  2. Redesigned sources section — button-style links
+  3. Staged typing indicator with contextual messages
+  4. Response type detection labels (explanation/recommendation/etc.)
+  5. Follow-up suggestion buttons after each response
+  6. Sticky header after welcome screen
+  7. Debug mode badge in header
+  8. Improved spacing, alignment, visual hierarchy
+
+Run with:
+    streamlit run app.py
+
+Backend unchanged — imports only load_artifacts, run_pipeline from rag_pipeline.py
+"""
 
 import streamlit as st
 import os
@@ -11,25 +28,20 @@ load_dotenv()
 from rag_pipeline import load_artifacts, run_pipeline
 from google import genai
 
-
-def get_gemini_api_key() -> str | None:
-    """Read the Gemini key from local env or Streamlit Cloud secrets."""
-    if os.environ.get("GEMINI_API_KEY"):
-        return os.environ["GEMINI_API_KEY"]
-    try:
-        return st.secrets.get("GEMINI_API_KEY")
-    except Exception:
-        return None
-
+# ═══════════════════════════════════════════════════════════════════════════════
+# PAGE CONFIG
+# ═══════════════════════════════════════════════════════════════════════════════
 
 st.set_page_config(
     page_title="Dustin | NVIDIA AI Advisor",
-    page_icon="ðŸŽ®",
+    page_icon="🎮",
     layout="centered",
     initial_sidebar_state="collapsed",
 )
 
-# Dustin pixel art avatar.
+# ═══════════════════════════════════════════════════════════════════════════════
+# DUSTIN PIXEL ART — 16×16 SVG
+# ═══════════════════════════════════════════════════════════════════════════════
 
 DUSTIN_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="48" height="48" style="image-rendering:pixelated;display:block;">
   <rect x="3" y="1" width="10" height="2" fill="#c0392b"/>
@@ -53,9 +65,24 @@ DUSTIN_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" widt
   <rect x="5" y="12" width="6" height="1" fill="#fff"/>
 </svg>"""
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# RESPONSE TYPE DETECTION
+# Classifies each response so we can show a label on the card
+# ═══════════════════════════════════════════════════════════════════════════════
 
 def detect_response_type(query: str, answer: str) -> tuple[str, str]:
-    """Return the response card label and color from query intent."""
+    """
+    Returns (label, color) for the response type badge.
+    Detected from query intent — no extra API call needed.
+
+    Types:
+      EXPLANATION     — "what is", "how does", "explain"
+      RECOMMENDATION  — "which", "should I", "when to use"
+      COMPARISON      — "difference", "vs", "compare"
+      GREETING        — casual conversation
+      REDIRECT        — nvidia-adjacent but out of scope
+      GENERAL         — fallback
+    """
     q = query.lower()
     if any(w in q for w in ["what is", "what are", "explain", "how does", "how do", "what does"]):
         return "EXPLANATION", "#2980b9"
@@ -70,6 +97,10 @@ def detect_response_type(query: str, answer: str) -> tuple[str, str]:
     return "GENERAL", "#c0392b"
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# FOLLOW-UP SUGGESTION GENERATOR
+# Returns 3 contextual follow-up questions based on what was just answered
+# ═══════════════════════════════════════════════════════════════════════════════
 
 FOLLOWUPS = {
     "nemo": [
@@ -103,7 +134,10 @@ FOLLOWUPS = {
 }
 
 def get_followups(output) -> list[str]:
-    """Pick three follow-up suggestions for the detected tool."""
+    """
+    Picks 3 relevant follow-up questions based on which tool was retrieved.
+    Falls back to general questions for conversational responses.
+    """
     tool = output.retrieval.detected_tool
     pool = FOLLOWUPS.get(tool, FOLLOWUPS["general"])
     # Don't suggest the same question that was just asked
@@ -111,6 +145,10 @@ def get_followups(output) -> list[str]:
     return random.sample(filtered, min(3, len(filtered)))
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# STAGED TYPING MESSAGES
+# Shows contextual status messages while the pipeline runs
+# ═══════════════════════════════════════════════════════════════════════════════
 
 TYPING_STAGES = {
     "nemo":     ["Scanning NeMo docs...", "Retrieving platform specs...", "Asking Dustin..."],
@@ -122,20 +160,23 @@ TYPING_STAGES = {
 
 def get_typing_stages(query: str) -> list[str]:
     q = query.lower()
-    if any(w in q for w in ["hey", "hi", "hello", "bye", "thanks", "do you copy"]):
+    if any(w in q for w in ["hey","hi","hello","bye","thanks","do you copy"]):
         return TYPING_STAGES["chat"]
     if "nemo" in q: return TYPING_STAGES["nemo"]
     if "triton" in q: return TYPING_STAGES["triton"]
-    if any(w in q for w in ["tensorrt", "trt"]):
-        return TYPING_STAGES["tensorrt"]
+    if any(w in q for w in ["tensorrt","trt"]): return TYPING_STAGES["tensorrt"]
     return TYPING_STAGES["general"]
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# CSS — retro pixel theme, enhanced components
+# ═══════════════════════════════════════════════════════════════════════════════
 
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Share+Tech+Mono&display=swap');
 
+/* ── Global reset ── */
 html, body, [class*="css"] {
     background-color: #0a0a0f !important;
     color: #e8e8e8 !important;
@@ -149,6 +190,7 @@ html, body, [class*="css"] {
 #MainMenu, footer { visibility: hidden; }
 .stDeployButton { display: none; }
 
+/* ── CRT scanlines ── */
 .stApp::before {
     content:"";
     position:fixed; top:0; left:0; width:100%; height:100%;
@@ -156,6 +198,9 @@ html, body, [class*="css"] {
     pointer-events:none; z-index:9998;
 }
 
+/* ══════════════════════════════════════
+   STICKY HEADER (shown after welcome)
+══════════════════════════════════════ */
 .sticky-header {
     position: sticky;
     top: 0;
@@ -194,6 +239,9 @@ html, body, [class*="css"] {
     animation: flicker 2s infinite;
 }
 
+/* ══════════════════════════════════════
+   WELCOME CARD
+══════════════════════════════════════ */
 .welcome-card {
     background: linear-gradient(135deg, #0d1117 0%, #1a0a0a 100%);
     border: 1px solid #c0392b;
@@ -250,6 +298,9 @@ html, body, [class*="css"] {
     0%,94%,100%{opacity:1} 95%{opacity:.7} 97%{opacity:.5} 99%{opacity:.9}
 }
 
+/* ══════════════════════════════════════
+   SECTION LABELS
+══════════════════════════════════════ */
 .section-label {
     font-family:'Press Start 2P',monospace;
     font-size:0.48rem;
@@ -259,6 +310,9 @@ html, body, [class*="css"] {
     margin:1rem 0 0.5rem;
 }
 
+/* ══════════════════════════════════════
+   QUICK START BUTTONS
+══════════════════════════════════════ */
 .stButton button {
     background:transparent !important;
     border:1px solid rgba(192,57,43,0.4) !important;
@@ -277,6 +331,9 @@ html, body, [class*="css"] {
     box-shadow:0 0 8px rgba(231,76,60,0.25) !important;
 }
 
+/* ══════════════════════════════════════
+   CHAT MESSAGES — base
+══════════════════════════════════════ */
 .stChatMessage { background:transparent !important; border:none !important; padding:0.25rem 0 !important; }
 .stChatMessage p, .stChatMessage li, .stChatMessage span {
     font-family:'Share Tech Mono',monospace !important;
@@ -285,6 +342,9 @@ html, body, [class*="css"] {
     color:#ddd !important;
 }
 
+/* ══════════════════════════════════════
+   RESPONSE CARD
+══════════════════════════════════════ */
 .response-card {
     background: linear-gradient(160deg, rgba(15,15,25,0.95) 0%, rgba(20,8,8,0.9) 100%);
     border: 1px solid rgba(192,57,43,0.22);
@@ -302,6 +362,7 @@ html, body, [class*="css"] {
     border-radius:0 4px 4px 0;
 }
 
+/* ── Response type badge ── */
 .type-badge {
     display:inline-block;
     font-family:'Press Start 2P',monospace;
@@ -313,6 +374,7 @@ html, body, [class*="css"] {
     border:1px solid currentColor;
 }
 
+/* ── Response text inside card ── */
 .response-card p, .response-card li {
     font-family:'Share Tech Mono',monospace !important;
     font-size:0.8rem !important;
@@ -321,6 +383,9 @@ html, body, [class*="css"] {
     margin:0.3rem 0 !important;
 }
 
+/* ══════════════════════════════════════
+   SOURCES SECTION — redesigned
+══════════════════════════════════════ */
 .sources-wrap {
     margin-top:0.875rem;
     padding-top:0.75rem;
@@ -376,7 +441,9 @@ html, body, [class*="css"] {
 }
 .source-link:hover { color:#888; border-bottom-color:#666; }
 
+/* ══════════════════════════════════════
    FOLLOW-UP SUGGESTIONS
+══════════════════════════════════════ */
 .followup-wrap {
     margin-top:0.75rem;
     padding-top:0.6rem;
@@ -404,6 +471,9 @@ html, body, [class*="css"] {
     box-shadow:none !important;
 }
 
+/* ══════════════════════════════════════
+   TYPING INDICATOR
+══════════════════════════════════════ */
 .typing-wrap {
     display:flex;
     align-items:center;
@@ -432,6 +502,9 @@ html, body, [class*="css"] {
     40%{transform:translateY(-5px);opacity:1}
 }
 
+/* ══════════════════════════════════════
+   CHAT INPUT
+══════════════════════════════════════ */
 .stChatInputContainer {
     border-top:1px solid rgba(192,57,43,0.2) !important;
     background:#0a0a0f !important;
@@ -452,12 +525,18 @@ html, body, [class*="css"] {
     outline:none !important;
 }
 
+/* ══════════════════════════════════════
+   SIDEBAR
+══════════════════════════════════════ */
 section[data-testid="stSidebar"] {
     background:#0c0c14 !important;
     border-right:1px solid rgba(192,57,43,0.15) !important;
 }
 .stToggle label { font-family:'Share Tech Mono',monospace !important; font-size:0.7rem !important; }
 
+/* ══════════════════════════════════════
+   DISCLAIMER
+══════════════════════════════════════ */
 .disclaimer {
     font-family:'Share Tech Mono',monospace;
     font-size:0.59rem;
@@ -474,7 +553,9 @@ section[data-testid="stSidebar"] {
 """, unsafe_allow_html=True)
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
 # SESSION STATE
+# ═══════════════════════════════════════════════════════════════════════════════
 
 defaults = {
     "messages":    [],
@@ -488,11 +569,13 @@ for k, v in defaults.items():
         st.session_state[k] = v
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
 # CACHED ARTIFACT LOADER
+# ═══════════════════════════════════════════════════════════════════════════════
 
 @st.cache_resource(show_spinner=False)
 def get_artifacts():
-    api_key = get_gemini_api_key()
+    api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         return None, None, None, None, None
     client = genai.Client(api_key=api_key)
@@ -500,6 +583,9 @@ def get_artifacts():
     return index, chunks, embed_model, metadata, client
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# HELPERS — render response card, sources, follow-ups
+# ═══════════════════════════════════════════════════════════════════════════════
 
 def source_tag_class(source: str) -> str:
     mapping = {"NEMO": "nemo", "TRITON": "triton", "TENSORRT": "tensorrt"}
@@ -533,7 +619,7 @@ def render_sources(sources: list[dict]):
             <div class="source-text">
                 <span class="source-section">{src['section']}</span>
                 <a class="source-link" href="{src['doc_link']}" target="_blank">
-                    â†— {src['doc_link'][:55]}{'...' if len(src['doc_link']) > 55 else ''}
+                    ↗ {src['doc_link'][:55]}{'...' if len(src['doc_link']) > 55 else ''}
                 </a>
             </div>
         </div>"""
@@ -549,7 +635,7 @@ def render_followups(followups: list[str]):
     cols = st.columns(len(followups))
     for i, (col, q) in enumerate(zip(cols, followups)):
         with col:
-            if st.button(f"â†³ {q}", key=f"fu_{hash(q)}_{len(st.session_state.messages)}", use_container_width=True):
+            if st.button(f"↳ {q}", key=f"fu_{hash(q)}_{len(st.session_state.messages)}", use_container_width=True):
                 st.session_state.pending_prompt = q
                 st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
@@ -568,29 +654,31 @@ def render_debug(output) -> str:
             debug_text += f"#{i} [{chunk['chunk_id']}]  score={score:.4f}\n"
             debug_text += f"   {chunk['section']}\n"
             debug_text += f"   {chunk['content'][:80].replace(chr(10),' ')}...\n\n"
-        with st.expander("ðŸ”§ debug", expanded=False):
+        with st.expander("🔧 debug", expanded=False):
             st.code(debug_text, language="text")
     return debug_text
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
 # SIDEBAR
+# ═══════════════════════════════════════════════════════════════════════════════
 
 with st.sidebar:
     st.markdown("""
     <div style="font-family:'Press Start 2P',monospace;font-size:0.5rem;
          color:#e74c3c;text-shadow:0 0 8px rgba(231,76,60,0.5);
          padding:1rem 0 0.75rem;text-align:center;letter-spacing:0.08em;">
-    âš™ SYSTEM STATUS
+    ⚙ SYSTEM STATUS
     </div>""", unsafe_allow_html=True)
 
     st.markdown("""
     <div style="font-family:'Share Tech Mono',monospace;font-size:0.66rem;
          color:#999;line-height:2.4;padding:0.25rem 0;">
-    <span style="color:#2ecc71">â–ª</span> Embeddings Â· MiniLM-L6-v2<br>
-    <span style="color:#2ecc71">â–ª</span> Vector DB  Â· FAISS Â· 57 chunks<br>
-    <span style="color:#2ecc71">â–ª</span> LLM        Â· Gemini 2.5 Flash Lite<br>
-    <span style="color:#2ecc71">â–ª</span> Persona    Â· Dustin Henderson<br>
-    <span style="color:#f39c12">â–ª</span> Scope      Â· NeMo Â· Triton Â· TRT
+    <span style="color:#2ecc71">▪</span> Embeddings · MiniLM-L6-v2<br>
+    <span style="color:#2ecc71">▪</span> Vector DB  · FAISS · 57 chunks<br>
+    <span style="color:#2ecc71">▪</span> LLM        · Gemini 2.5 Flash Lite<br>
+    <span style="color:#2ecc71">▪</span> Persona    · Dustin Henderson<br>
+    <span style="color:#f39c12">▪</span> Scope      · NeMo · Triton · TRT
     </div>""", unsafe_allow_html=True)
 
     st.divider()
@@ -598,17 +686,18 @@ with st.sidebar:
     st.markdown("""<div style="font-family:'Press Start 2P',monospace;font-size:0.45rem;
          color:#444;margin-bottom:0.5rem;">DEV OPTIONS</div>""", unsafe_allow_html=True)
 
-    debug = st.toggle("ðŸ”§ Debug mode", value=st.session_state.debug_mode)
+    debug = st.toggle("🔧 Debug mode", value=st.session_state.debug_mode)
     st.session_state.debug_mode = debug
 
     if debug:
         st.markdown("""<div style="font-family:'Share Tech Mono',monospace;font-size:0.6rem;
              color:#666;line-height:1.9;margin-top:0.35rem;">
+        Shows scores · chunk IDs<br>source routing · raw retrieval
         </div>""", unsafe_allow_html=True)
 
     st.divider()
 
-    if st.button("ðŸ—‘  Clear conversation", use_container_width=True):
+    if st.button("🗑  Clear conversation", use_container_width=True):
         st.session_state.messages = []
         st.session_state.show_welcome = True
         st.session_state.asked = set()
@@ -616,10 +705,13 @@ with st.sidebar:
 
     st.markdown("""<div style="font-family:'Share Tech Mono',monospace;font-size:0.56rem;
          color:#333;text-align:center;margin-top:1.5rem;line-height:2;">
-    NVIDIA AI Advisor v2<br>RAG Â· MiniLM Â· FAISS Â· Gemini
+    NVIDIA AI Advisor v2<br>RAG · MiniLM · FAISS · Gemini
     </div>""", unsafe_allow_html=True)
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# STICKY HEADER — shown once conversation has started
+# ═══════════════════════════════════════════════════════════════════════════════
 
 if not st.session_state.show_welcome or len(st.session_state.messages) > 0:
     debug_badge = '<span class="debug-badge">DEBUG ON</span>' if st.session_state.debug_mode else ""
@@ -627,15 +719,17 @@ if not st.session_state.show_welcome or len(st.session_state.messages) > 0:
         f"""<div class="sticky-header">
             <div style="image-rendering:pixelated;flex-shrink:0;">{DUSTIN_SVG}</div>
             <div style="flex:1;">
-                <div class="sticky-header-title">DUSTIN Â· NVIDIA AI ADVISOR {debug_badge}</div>
-                <div class="sticky-header-sub">NeMo Â· Triton Â· TensorRT</div>
+                <div class="sticky-header-title">DUSTIN · NVIDIA AI ADVISOR {debug_badge}</div>
+                <div class="sticky-header-sub">NeMo · Triton · TensorRT</div>
             </div>
         </div>""",
         unsafe_allow_html=True
     )
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
 # WELCOME SCREEN
+# ═══════════════════════════════════════════════════════════════════════════════
 
 if st.session_state.show_welcome and len(st.session_state.messages) == 0:
     st.markdown(f"""
@@ -644,19 +738,20 @@ if st.session_state.show_welcome and len(st.session_state.messages) == 0:
         <div class="welcome-title">MEET DUSTIN</div>
         <div class="welcome-sub">YOUR NVIDIA AI ECOSYSTEM GUIDE</div>
         <div class="welcome-desc">
-            Hey! Dustin Henderson here â€” and yes, I've got the whole
+            Hey! Dustin Henderson here — and yes, I've got the whole
             NVIDIA AI stack loaded up. NeMo Platform, Triton Inference
-            Server, TensorRT and TRT-LLM â€” ask me anything about these
-            tools and I'll break it down clearly.
+            Server, TensorRT and TRT-LLM — ask me anything about these
+            tools and I'll break it down for you, no Demogorgons included.
         </div>
     </div>""", unsafe_allow_html=True)
 
+    # ── Greeting row ──────────────────────────────────────────────────────────
     st.markdown('<div class="section-label">// greet dustin</div>', unsafe_allow_html=True)
     g1, g2, g3 = st.columns(3)
     greetings = [
-        ("ðŸ‘‹ Hey Dustin, you there?",  "Hey Dustin, you there?"),
-        ("ðŸ“¡ Do you copy, Dustin?",     "Do you copy, Dustin?"),
-        ("ðŸŽ® Hello there!",             "Hello there, Dustin!"),
+        ("👋 Hey Dustin, you there?",  "Hey Dustin, you there?"),
+        ("📡 Do you copy, Dustin?",     "Do you copy, Dustin?"),
+        ("🎮 Hello there!",             "Hello there, Dustin!"),
     ]
     for col, (label, prompt) in zip([g1, g2, g3], greetings):
         with col:
@@ -664,12 +759,13 @@ if st.session_state.show_welcome and len(st.session_state.messages) == 0:
                 st.session_state.pending_prompt = prompt
                 st.rerun()
 
+    # ── Topic row ─────────────────────────────────────────────────────────────
     st.markdown('<div class="section-label" style="margin-top:1.1rem;">// jump straight in</div>', unsafe_allow_html=True)
     t1, t2, t3 = st.columns(3)
     topics = [
-        ("ðŸ§  What is NeMo?",            "What is NeMo Platform and when should I use it?"),
-        ("âš¡ How does Triton work?",     "How does Triton Inference Server work?"),
-        ("ðŸ”§ What is TensorRT?",        "What is TensorRT and how does it optimize models?"),
+        ("🧠 What is NeMo?",            "What is NeMo Platform and when should I use it?"),
+        ("⚡ How does Triton work?",     "How does Triton Inference Server work?"),
+        ("🔧 What is TensorRT?",        "What is TensorRT and how does it optimize models?"),
     ]
     for col, (label, prompt) in zip([t1, t2, t3], topics):
         with col:
@@ -677,12 +773,13 @@ if st.session_state.show_welcome and len(st.session_state.messages) == 0:
                 st.session_state.pending_prompt = prompt
                 st.rerun()
 
+    # ── Goodbye row ───────────────────────────────────────────────────────────
     st.markdown('<div class="section-label" style="margin-top:1.1rem;">// wrap up a session</div>', unsafe_allow_html=True)
     b1, b2, b3 = st.columns(3)
     byes = [
-        ("ðŸ™ Thanks, bye Dustin!", "Thanks Dustin, that was super helpful. Bye!"),
-        ("ðŸ‘‹ See you later!",       "See you later, Dustin!"),
-        ("âœŒ  Later!",              "Later, Dustin!"),
+        ("🙏 Thanks, bye Dustin!", "Thanks Dustin, that was super helpful. Bye!"),
+        ("👋 See you later!",       "See you later, Dustin!"),
+        ("✌  Later!",              "Later, Dustin!"),
     ]
     for col, (label, prompt) in zip([b1, b2, b3], byes):
         with col:
@@ -691,7 +788,9 @@ if st.session_state.show_welcome and len(st.session_state.messages) == 0:
                 st.rerun()
 
 
-# CHAT HISTORY â€” render previous messages
+# ═══════════════════════════════════════════════════════════════════════════════
+# CHAT HISTORY — render previous messages
+# ═══════════════════════════════════════════════════════════════════════════════
 
 for i, msg in enumerate(st.session_state.messages):
     if msg["role"] == "user":
@@ -716,14 +815,16 @@ for i, msg in enumerate(st.session_state.messages):
                 render_sources(msg["sources"])
             # Debug
             if msg.get("debug_info") and st.session_state.debug_mode:
-                with st.expander("ðŸ”§ debug", expanded=False):
+                with st.expander("🔧 debug", expanded=False):
                     st.code(msg["debug_info"], language="text")
             # Follow-ups (only show for last message)
             if i == len(st.session_state.messages) - 1 and msg.get("followups"):
                 render_followups(msg["followups"])
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
 # HANDLE PENDING PROMPT (button clicks)
+# ═══════════════════════════════════════════════════════════════════════════════
 
 prompt = st.session_state.pop("pending_prompt", None)
 user_input = st.chat_input("Ask Dustin anything about NeMo, Triton, or TensorRT...")
@@ -731,7 +832,9 @@ if user_input:
     prompt = user_input
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
 # PROCESS QUERY
+# ═══════════════════════════════════════════════════════════════════════════════
 
 if prompt:
     st.session_state.show_welcome = False
@@ -743,12 +846,13 @@ if prompt:
 
     index, chunks, embed_model, metadata, client = get_artifacts()
     if client is None:
-        st.error("GEMINI_API_KEY not found. Add it to .env locally or Streamlit Secrets when deployed.")
+        st.error("⚠ GEMINI_API_KEY not found in .env file.")
         st.stop()
 
     with st.chat_message("assistant", avatar=DUSTIN_SVG):
         typing_ph = st.empty()
 
+        # ── Staged typing indicator ───────────────────────────────────────────
         stages = get_typing_stages(prompt)
         for stage_msg in stages:
             typing_ph.markdown(
@@ -764,10 +868,12 @@ if prompt:
             )
             time.sleep(0.6)
 
+        # ── Run pipeline ──────────────────────────────────────────────────────
         mode = "debug" if st.session_state.debug_mode else "user"
         output = run_pipeline(prompt, index, chunks, embed_model, client, mode=mode)
         typing_ph.empty()
 
+        # ── Response card with type badge ─────────────────────────────────────
         label, color = detect_response_type(prompt, output.final_answer)
         st.markdown(
             f"""<div class="response-card">
@@ -777,10 +883,13 @@ if prompt:
             unsafe_allow_html=True
         )
 
+        # ── Sources ───────────────────────────────────────────────────────────
         render_sources(output.sources)
 
+        # ── Debug ─────────────────────────────────────────────────────────────
         debug_text = render_debug(output)
 
+        # ── Follow-up suggestions ─────────────────────────────────────────────
         followups = get_followups(output)
         render_followups(followups)
 
@@ -794,18 +903,17 @@ if prompt:
     })
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
 # DISCLAIMER
+# ═══════════════════════════════════════════════════════════════════════════════
 
 st.markdown("""
 <div class="disclaimer">
-    âš  &nbsp;Dustin is explicitly trained on
+    ⚠ &nbsp;Dustin is explicitly trained on
     <strong>NVIDIA NeMo</strong>, <strong>Triton Inference Server</strong>,
     and <strong>TensorRT</strong> documentation only.
     Responses outside this scope may be incomplete or redirected to official docs.
-    &nbsp;Â·&nbsp; This system can make mistakes â€” always verify critical information at
+    &nbsp;·&nbsp; This system can make mistakes — always verify critical information at
     <a href="https://docs.nvidia.com" target="_blank">docs.nvidia.com</a>.
 </div>
 """, unsafe_allow_html=True)
-
-
-
