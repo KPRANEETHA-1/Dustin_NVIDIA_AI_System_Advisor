@@ -1,8 +1,6 @@
 streamlit
-sentence-transformers==2.2.2
-transformers==4.41.2
-torch==2.2.2
 faiss-cpu
 numpy
 python-dotenv
 google-genai
+sentence-transformers
