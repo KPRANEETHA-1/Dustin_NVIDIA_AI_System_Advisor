@@ -1,0 +1,525 @@
+{
+  "metadata": {
+    "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+    "vector_dim": 384,
+    "num_chunks": 57,
+    "index_type": "IndexFlatIP",
+    "normalized": true,
+    "similarity": "cosine"
+  },
+  "chunks": [
+    {
+      "chunk_id": "nemo_000",
+      "source": "nemo",
+      "section": "NVIDIA NeMo Platform — RAG Knowledge Base",
+      "doc_link": "https://docs.nvidia.com/nemo-framework/user-guide/latest/index.html",
+      "content": "Source: [NVIDIA NeMo Platform Official Documentation](https://docs.nvidia.com/nemo-framework/user-guide/latest/index.html) \nCategory: Model Customization, Evaluation, Guardrails, Deployment \nTool Identity: NeMo is NVIDIA's end-to-end platform for building, fine-tuning, evaluating, and deploying AI models with enterprise-grade controls.",
+      "char_count": 337,
+      "token_approx": 84
+    },
+    {
+      "chunk_id": "nemo_001",
+      "source": "nemo",
+      "section": "1. What is NeMo Platform?",
+      "doc_link": "https://docs.nvidia.com/nemo-framework/user-guide/latest/index.html",
+      "content": "NeMo Platform is NVIDIA's infrastructure layer for building and deploying specialized AI agents using open-source models. It is not a single model — it is a full platform that handles the entire AI development lifecycle:\n\n- Synthetic data generation — create training data at scale\n- Model fine-tuning — customize models for your domain\n- Evaluation — benchmark and measure model quality\n- Security testing — scan for vulnerabilities via NeMo Auditor\n- Guardrails — real-time content moderation and safety\n- Inference — serve models through a unified gateway\n\nDeployment options: Docker (local) or Kubernetes (production) \nEnterprise features: RBAC (Role-Based Access Control), observability, audit logging",
+      "char_count": 706,
+      "token_approx": 176
+    },
+    {
+      "chunk_id": "nemo_002",
+      "source": "nemo",
+      "section": "2. When to Use NeMo (Decision Guide)",
+      "doc_link": "https://docs.nvidia.com/nemo-framework/user-guide/latest/index.html",
+      "content": "Use NeMo when you need to:\n\nNeMo supports the following use case: Fine-tune an LLM on domain-specific data. This is handled by Customizer + Data Designer.\nNeMo supports the following use case: Evaluate model quality (accuracy, safety, RAG metrics). This is handled by Evaluator.\nNeMo supports the following use case: Generate synthetic training data. This is handled by Data Designer Service.\nNeMo supports the following use case: Add safety filters to an LLM app. This is handled by Guardrails.\nNeMo supports the following use case: Fine-tune embedding models for RAG. This is handled by Customizer + Evaluator.\nNeMo supports the following use case: Manage AI resources with RBAC across teams. This is handled by Workspaces + Roles.\nNeMo supports the following use case: Scan AI agents for vulnerabilities. This is handled by NeMo Auditor.\n\nNeMo vs Triton vs TensorRT — Quick Rule:\n- Need to train or fine-tune a model → NeMo\n- Need to serve/deploy a model at scale → Triton\n- Need to optimize inference speed on GPU → TensorRT\n- Full pipeline: NeMo → TensorRT → Triton (this is the standard NVIDIA production stack)",
+      "char_count": 1117,
+      "token_approx": 279
+    },
+    {
+      "chunk_id": "nemo_003",
+      "source": "nemo",
+      "section": "3.1 Workspaces",
+      "doc_link": "https://docs.nvidia.com/nemo-framework/user-guide/latest/index.html",
+      "content": "Workspaces are the fundamental organizational boundary in NeMo. Every resource (models, datasets, jobs, deployments) must belong to a workspace.\n\nRole levels:\n- Viewer — read-only access\n- Editor — can create and modify resources\n- Admin — full control including role management\n\nWorkspace naming rules:\n- Must start with a lowercase letter (a–z)\n- 2–63 characters long\n- Allowed: lowercase letters, digits, hyphens\n- No consecutive hyphens (--)\n- Cannot end with a hyphen\n- Cannot be renamed after creation — choose carefully\n\nBuilt-in workspaces:\n- default — general experimentation, editable by all authenticated users\n- system — platform-provided resources (read-only for regular users)\n\nBest practice: Use separate workspaces for true isolation (e.g., team-ml-research, env-production, client-acme). For lightweight grouping within a workspace, use Projects.",
+      "char_count": 863,
+      "token_approx": 215
+    },
+    {
+      "chunk_id": "nemo_004",
+      "source": "nemo",
+      "section": "3.2 Entities",
+      "doc_link": "https://docs.nvidia.com/nemo-framework/user-guide/latest/index.html",
+      "content": "Entities are the underlying data objects for all NeMo resources. Every model, dataset, job, and config is stored as an entity.\n\n- All entities share common metadata: name, workspace, timestamps, custom fields\n- Entity names are unique within a workspace (same name can exist in different workspaces)\n- Accessed via service-specific APIs (Customizer, Evaluator, Models) — not a generic entity API",
+      "char_count": 395,
+      "token_approx": 98
+    },
+    {
+      "chunk_id": "nemo_005",
+      "source": "nemo",
+      "section": "3.3 Secrets Management",
+      "doc_link": "https://docs.nvidia.com/nemo-framework/user-guide/latest/index.html",
+      "content": "NeMo provides encrypted secret storage for API keys (e.g., Hugging Face tokens, Weights & Biases keys).\n\n- Secrets are encrypted at rest\n- Once created, the secret value cannot be retrieved through the API — not even by Admins\n- Only Platform Administrators can retrieve secret values\n- Referenced in configs as workspace/secret_name",
+      "char_count": 333,
+      "token_approx": 83
+    },
+    {
+      "chunk_id": "nemo_006",
+      "source": "nemo",
+      "section": "3.4 File Storage (Filesets)",
+      "doc_link": "https://docs.nvidia.com/nemo-framework/user-guide/latest/index.html",
+      "content": "A Fileset is a named container for files, used for datasets, model artifacts, and evaluation results.\n\nSupported storage backends:\n\nNeMo — Backend: local; Type: Read/Write; Description: Default local filesystem storage.\nNeMo — Backend: s3; Type: Read/Write; Description: Amazon S3 or S3-compatible (e.g., MinIO).\nNeMo — Backend: ngc; Type: Read-Only; Description: NVIDIA GPU Cloud storage.\nNeMo — Backend: huggingface; Type: Read-Only; Description: HuggingFace Hub repositories.",
+      "char_count": 478,
+      "token_approx": 119
+    },
+    {
+      "chunk_id": "nemo_007",
+      "source": "nemo",
+      "section": "4.1 Core Objects",
+      "doc_link": "https://docs.nvidia.com/nemo-framework/user-guide/latest/index.html",
+      "content": "ModelDeploymentConfig — A versioned blueprint for deploying a NIM (NVIDIA Inference Microservice) container. Specifies:\n- GPU count\n- Container image\n- Model name\n- Optional: LoRA support, chat templates, tool calling, custom environment variables\n- Reusable: multiple deployments from one config; updates create a new version without affecting existing deployments\n\nModelDeployment — A running instance of a NIM container. \nLifecycle states: CREATED → PENDING → READY | FAILED\nWhen READY, a ModelProvider is automatically created.\n\nModelProvider — A routable inference host. All inference requests are routed through a ModelProvider, which can serve one or more Models.\n\nModel — A registered model entity (e.g., nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16). Can be:\n- Hosted locally via NIM\n- External (NVIDIA Build, OpenAI, etc.)",
+      "char_count": 830,
+      "token_approx": 207
+    },
+    {
+      "chunk_id": "nemo_008",
+      "source": "nemo",
+      "section": "5. NeMo Guardrails",
+      "doc_link": "https://docs.nvidia.com/nemo-framework/user-guide/latest/index.html",
+      "content": "Purpose: Apply safety checks and content moderation to LLM applications.\n\nHow it works:\n1. User request arrives at the Guardrails OpenAI-compatible endpoint\n2. Guardrails evaluates the input against configured policies\n3. If safe, request is forwarded to the inference model\n4. Model output is evaluated before returning to the user\n5. Blocked content is handled according to the guardrail config\n\nUse cases:\n- Content safety (toxicity, hate speech)\n- Topic control (keep models on-topic)\n- PII protection\n- Jailbreak detection\n\nKey distinction: Guardrails is about protecting an LLM application in production. NeMo Auditor is about scanning AI agents for vulnerabilities before deployment.",
+      "char_count": 690,
+      "token_approx": 172
+    },
+    {
+      "chunk_id": "nemo_009",
+      "source": "nemo",
+      "section": "6.1 Core Primitives",
+      "doc_link": "https://docs.nvidia.com/nemo-framework/user-guide/latest/index.html",
+      "content": "NeMo — Primitive: Metrics; Purpose: Flexible scoring logic for model outputs; When to Use: Custom datasets, task-specific criteria.\nNeMo — Primitive: Benchmarks; Purpose: Metrics + Dataset paired together; When to Use: Standardized comparisons, regression testing.",
+      "char_count": 264,
+      "token_approx": 66
+    },
+    {
+      "chunk_id": "nemo_010",
+      "source": "nemo",
+      "section": "6.3 Evaluation Patterns",
+      "doc_link": "https://docs.nvidia.com/nemo-framework/user-guide/latest/index.html",
+      "content": "- Offline evaluation — score pre-existing model outputs (already generated)\n- Online evaluation — generate outputs from a model and score them in one pipeline",
+      "char_count": 158,
+      "token_approx": 39
+    },
+    {
+      "chunk_id": "nemo_011",
+      "source": "nemo",
+      "section": "7. Data Designer Service",
+      "doc_link": "https://docs.nvidia.com/nemo-framework/user-guide/latest/index.html",
+      "content": "Purpose: Orchestrate complex synthetic data generation workflows at scale.\n\nCore capability: Coordinates LLM calls, manages dependencies between data fields, handles batching and parallelization, and validates generated data against specifications.\n\nTypical workflow:",
+      "char_count": 267,
+      "token_approx": 66
+    },
+    {
+      "chunk_id": "nemo_012",
+      "source": "nemo",
+      "section": "8. NeMo Studio",
+      "doc_link": "https://docs.nvidia.com/nemo-framework/user-guide/latest/index.html",
+      "content": "NeMo Studio is the web UI for NeMo Platform — a user-friendly interface that surfaces all NeMo capabilities visually. It is built on top of the same APIs available via CLI and Python SDK.",
+      "char_count": 187,
+      "token_approx": 46
+    },
+    {
+      "chunk_id": "nemo_013",
+      "source": "nemo",
+      "section": "9. NeMo in the Broader NVIDIA Stack",
+      "doc_link": "https://docs.nvidia.com/nemo-framework/user-guide/latest/index.html",
+      "content": "NeMo handles the left side of the pipeline (data → training → evaluation → guardrails). \nTriton + TensorRT handle the right side (optimization → serving → monitoring).",
+      "char_count": 167,
+      "token_approx": 41
+    },
+    {
+      "chunk_id": "nemo_014",
+      "source": "nemo",
+      "section": "10. Key NeMo API References",
+      "doc_link": "https://docs.nvidia.com/nemo-framework/user-guide/latest/index.html",
+      "content": "NeMo — Action: List workspaces; Endpoint / Method: GET /v2/workspaces.\nNeMo — Action: Create workspace; Endpoint / Method: POST /v2/workspaces.\nNeMo — Action: Live metric evaluation; Endpoint / Method: POST /v2/workspaces/{workspace}/evaluation/metric-evaluate.\nNeMo — Action: Submit metric job; Endpoint / Method: POST /v2/workspaces/{workspace}/evaluation/metric-jobs.\nNeMo — Action: Submit benchmark job; Endpoint / Method: POST /v2/workspaces/{workspace}/evaluation/benchmark-jobs.\nNeMo — Action: Register model provider; Endpoint / Method: POST /v2/workspaces/{workspace}/models/providers.",
+      "char_count": 594,
+      "token_approx": 148
+    },
+    {
+      "chunk_id": "nemo_015",
+      "source": "nemo",
+      "section": "11. Common Misconceptions",
+      "doc_link": "https://docs.nvidia.com/nemo-framework/user-guide/latest/index.html",
+      "content": "Common misconception about NeMo: \"\"NeMo is just a model\"\" — The correct understanding is: NeMo is a full platform — it includes data, training, eval, guardrails, and inference.\nCommon misconception about NeMo: \"\"I need NeMo to serve models\"\" — The correct understanding is: Triton is the primary serving layer; NeMo provides the gateway and management layer.\nCommon misconception about NeMo: \"\"Guardrails is optional for production\"\" — The correct understanding is: For enterprise deployments with user-facing LLMs, guardrails is a critical safety component.\nCommon misconception about NeMo: \"\"NeMo only works with NVIDIA models\"\" — The correct understanding is: NeMo supports open-source models from HuggingFace and external providers like OpenAI.\n\nLast updated from official NVIDIA NeMo documentation. For the latest, see: https://docs.nvidia.com/nemo-framework/user-guide/latest/index.html",
+      "char_count": 892,
+      "token_approx": 223
+    },
+    {
+      "chunk_id": "triton_000",
+      "source": "triton",
+      "section": "NVIDIA Triton Inference Server — RAG Knowledge Base",
+      "doc_link": "https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/index.html",
+      "content": "Source: [NVIDIA Triton Inference Server Official Documentation](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/index.html) \nCategory: Model Serving, Inference, Deployment \nTool Identity: Triton is NVIDIA's open-source inference serving platform — it takes any trained/optimized model and exposes it as a production-grade HTTP/gRPC API.",
+      "char_count": 365,
+      "token_approx": 91
+    },
+    {
+      "chunk_id": "triton_001",
+      "source": "triton",
+      "section": "1. What is Triton Inference Server?",
+      "doc_link": "https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/index.html",
+      "content": "NVIDIA Triton Inference Server is an open-source inference serving software that streamlines AI model deployment. It acts as the serving layer in the NVIDIA AI stack — taking models from frameworks like TensorRT, PyTorch, ONNX, and others, and exposing them as standardized API endpoints.\n\nCore value proposition: Deploy any model, from any framework, to any hardware, behind a single, standardized API.\n\nPart of: NVIDIA AI Enterprise — the production-grade AI software platform.",
+      "char_count": 479,
+      "token_approx": 119
+    },
+    {
+      "chunk_id": "triton_002",
+      "source": "triton",
+      "section": "2. When to Use Triton (Decision Guide)",
+      "doc_link": "https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/index.html",
+      "content": "Use Triton when you need to:\n\nTriton supports the following use case: Serve multiple models simultaneously. This is handled by Concurrent model execution.\nTriton supports the following use case: Handle bursts of inference requests. This is handled by Dynamic batching.\nTriton supports the following use case: Serve models across GPU, CPU, or edge devices. This is handled by Multi-hardware support.\nTriton supports the following use case: Connect to Kubernetes / production infrastructure. This is handled by Health endpoints + metrics.\nTriton supports the following use case: Build model pipelines (chained inference). This is handled by Ensembling + Business Logic Scripting.\nTriton supports the following use case: Serve stateful models (e.g., speech, video). This is handled by Sequence batching.\nTriton supports the following use case: Benchmark LLM throughput and latency. This is handled by GenAI-Perf tool.",
+      "char_count": 914,
+      "token_approx": 228
+    },
+    {
+      "chunk_id": "triton_003",
+      "source": "triton",
+      "section": "2. When to Use Triton (Decision Guide)",
+      "doc_link": "https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/index.html",
+      "content": "Triton vs NeMo vs TensorRT — Quick Rule:\n- Need to train or fine-tune a model → NeMo\n- Need to serve/deploy a model with a standard API → Triton\n- Need to optimize GPU inference speed → TensorRT (then serve with Triton)\n- Common pattern: TensorRT optimizes the engine → Triton serves it → clients query via HTTP/gRPC",
+      "char_count": 316,
+      "token_approx": 79
+    },
+    {
+      "chunk_id": "triton_004",
+      "source": "triton",
+      "section": "3. Supported Frameworks (Backends)",
+      "doc_link": "https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/index.html",
+      "content": "Triton supports a wide range of ML/DL backends out of the box:\n\nThe TensorRT backend in Triton supports NVIDIA's optimized inference engine.\nThe PyTorch (TorchScript) backend in Triton supports Meta's deep learning framework.\nThe ONNX Runtime backend in Triton supports Cross-framework open standard.\nThe TensorFlow backend in Triton supports Google's ML framework.\nThe OpenVINO backend in Triton supports Intel's inference optimization toolkit.\nThe Python backend in Triton supports Custom Python-based backends.\nThe RAPIDS FIL backend in Triton supports NVIDIA's ML inference for tree models.\nThe TensorRT-LLM backend in Triton supports Optimized LLM inference (via TRT-LLM backend).\n\nKey insight: This multi-backend support is what differentiates Triton. You can serve a TensorRT-optimized LLM and a PyTorch vision model from the same Triton instance simultaneously.",
+      "char_count": 869,
+      "token_approx": 217
+    },
+    {
+      "chunk_id": "triton_005",
+      "source": "triton",
+      "section": "4. Triton Architecture",
+      "doc_link": "https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/index.html",
+      "content": "Model Repository: A file-system-based directory where all model artifacts are stored. Triton reads from this on startup and can be dynamically updated via the Model Management API.\n\nRequest flow:\n1. Inference request arrives via HTTP/REST, gRPC, or C API\n2. Routed to the per-model scheduler\n3. Scheduler batches requests (if configured)\n4. Backend performs GPU/CPU inference\n5. Outputs returned to the client",
+      "char_count": 409,
+      "token_approx": 102
+    },
+    {
+      "chunk_id": "triton_006",
+      "source": "triton",
+      "section": "5.1 Dynamic Batching",
+      "doc_link": "https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/index.html",
+      "content": "Triton can automatically group incoming requests into batches to maximize GPU utilization, even when clients send individual requests. This is critical for LLM serving where batching dramatically improves throughput.",
+      "char_count": 216,
+      "token_approx": 54
+    },
+    {
+      "chunk_id": "triton_007",
+      "source": "triton",
+      "section": "5.2 Sequence Batching",
+      "doc_link": "https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/index.html",
+      "content": "For stateful models (speech recognition, video, multi-turn conversations), Triton maintains implicit state across a sequence of requests from the same client. The model doesn't need to re-receive the full context each time.",
+      "char_count": 223,
+      "token_approx": 55
+    },
+    {
+      "chunk_id": "triton_008",
+      "source": "triton",
+      "section": "5.3 Concurrent Model Execution",
+      "doc_link": "https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/index.html",
+      "content": "Multiple instances of the same model (or entirely different models) can run simultaneously on the same GPU or across multiple GPUs. Triton manages resource allocation automatically.",
+      "char_count": 181,
+      "token_approx": 45
+    },
+    {
+      "chunk_id": "triton_009",
+      "source": "triton",
+      "section": "5.4 Ensemble Pipelines",
+      "doc_link": "https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/index.html",
+      "content": "Chain multiple models together in a pipeline. For example:\n\nTriton handles the data flow between models, eliminating the need for client-side orchestration.",
+      "char_count": 156,
+      "token_approx": 39
+    },
+    {
+      "chunk_id": "triton_010",
+      "source": "triton",
+      "section": "5.5 Business Logic Scripting (BLS)",
+      "doc_link": "https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/index.html",
+      "content": "For pipelines that require conditional logic (e.g., \"if the first model's output exceeds a threshold, call model B\"), BLS allows writing Python-based orchestration logic that runs inside Triton.",
+      "char_count": 194,
+      "token_approx": 48
+    },
+    {
+      "chunk_id": "triton_011",
+      "source": "triton",
+      "section": "5.6 Backend C API",
+      "doc_link": "https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/index.html",
+      "content": "Triton's extensible architecture allows adding custom backends — custom pre/post-processing operations or entirely new inference frameworks — via the Backend C API.",
+      "char_count": 164,
+      "token_approx": 41
+    },
+    {
+      "chunk_id": "triton_012",
+      "source": "triton",
+      "section": "Advanced LLM Configuration Options (via TRT-LLM backend):",
+      "doc_link": "https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/index.html",
+      "content": "KV Cache: Reuse attention key-value pairs across requests to reduce memory bandwidth.\nChunked Context: Split long contexts into chunks; batch during generation for higher throughput.\nSpeculative Decoding: Use a small draft model to predict tokens; verify with large model for speedup.\nMIG Support: Run multiple model instances on GPU partitions for isolation and efficiency.\nQuantization: INT8/FP8/INT4 to reduce model size and increase throughput.\nLoRA: Serve multiple fine-tuned adapters from a single base model.\nBeam Search: For tasks requiring multiple candidate outputs (translation, code gen).",
+      "char_count": 600,
+      "token_approx": 150
+    },
+    {
+      "chunk_id": "triton_013",
+      "source": "triton",
+      "section": "7. Supported Hardware",
+      "doc_link": "https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/index.html",
+      "content": "Triton runs on a wide range of hardware:\n\nTriton supports NVIDIA GPUs (all modern) hardware (Full support, best performance).\nTriton supports x86 CPU hardware (Supported via ONNX Runtime / OpenVINO).\nTriton supports ARM CPU hardware (Supported (edge deployments)).\nTriton supports AWS Inferentia hardware (Supported).\nTriton supports NVIDIA SoCs (Jetson) hardware (Supported via C API and ARM builds).",
+      "char_count": 401,
+      "token_approx": 100
+    },
+    {
+      "chunk_id": "triton_014",
+      "source": "triton",
+      "section": "8. Protocols and APIs",
+      "doc_link": "https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/index.html",
+      "content": "Triton — Protocol: HTTP/REST; Use Case: Standard web clients, easy integration.\nTriton — Protocol: gRPC; Use Case: High-performance, low-latency clients.\nTriton — Protocol: C API; Use Case: Embedded/edge deployments, in-process use.\nTriton — Protocol: Java API; Use Case: JVM-based applications.\nTriton — Protocol: KServe Protocol; Use Case: Community standard for interoperability.",
+      "char_count": 382,
+      "token_approx": 95
+    },
+    {
+      "chunk_id": "triton_015",
+      "source": "triton",
+      "section": "9. Observability and Operations",
+      "doc_link": "https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/index.html",
+      "content": "Triton provides production-grade observability out of the box:\n\n- Readiness endpoint — Is Triton ready to serve? (for Kubernetes)\n- Liveness endpoint — Is Triton alive? (for Kubernetes health checks)\n- Metrics endpoint — Prometheus-compatible metrics:\n - GPU utilization\n - Server throughput (requests/sec)\n - Server latency (p50, p90, p99)\n - Queue time, compute time, transfer time\n - Per-model statistics\n\nGenAI-Perf: Command-line tool for benchmarking LLM throughput and latency on Triton. Part of the Triton toolkit.\n\n```bash",
+      "char_count": 530,
+      "token_approx": 132
+    },
+    {
+      "chunk_id": "triton_016",
+      "source": "triton",
+      "section": "10.3 Kubernetes Deployment",
+      "doc_link": "https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/index.html",
+      "content": "Triton integrates naturally with Kubernetes:\n- Readiness/liveness probes → Kubernetes health checks\n- Prometheus metrics → Grafana dashboards\n- Horizontal Pod Autoscaler support\n- Helm charts available via NGC",
+      "char_count": 209,
+      "token_approx": 52
+    },
+    {
+      "chunk_id": "triton_017",
+      "source": "triton",
+      "section": "10.4 Edge Deployment",
+      "doc_link": "https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/index.html",
+      "content": "For resource-constrained environments (Jetson, embedded), use the C API or ARM builds. Triton can run in-process with no network overhead.",
+      "char_count": 138,
+      "token_approx": 34
+    },
+    {
+      "chunk_id": "triton_018",
+      "source": "triton",
+      "section": "11. Model Management API",
+      "doc_link": "https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/index.html",
+      "content": "Triton exposes a dedicated API for managing models at runtime (via HTTP/REST, gRPC, or C API):\n\n- Load/unload models without restarting Triton\n- Query model status (is it ready, loading, unloading?)\n- Get model metadata (input/output shapes, data types)\n- Get server statistics",
+      "char_count": 277,
+      "token_approx": 69
+    },
+    {
+      "chunk_id": "triton_019",
+      "source": "triton",
+      "section": "13. Common Misconceptions",
+      "doc_link": "https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/index.html",
+      "content": "Common misconception about Triton: \"\"Triton only works with TensorRT\"\" — The correct understanding is: Triton supports 10+ backends including PyTorch, ONNX, Python, etc..\nCommon misconception about Triton: \"\"I need Triton for local development\"\" — The correct understanding is: Triton is for production serving; for dev, just use the framework's native inference.\nCommon misconception about Triton: \"\"Triton replaces TensorRT\"\" — The correct understanding is: Triton serves models; TensorRT optimizes them — complementary, not competing.\nCommon misconception about Triton: \"\"Triton only works on GPUs\"\" — The correct understanding is: Triton supports x86 CPU, ARM, AWS Inferentia, and edge devices.\nCommon misconception about Triton: \"\"I have to restart Triton to load a new model\"\" — The correct understanding is: The Model Management API allows hot-loading models at runtime.",
+      "char_count": 877,
+      "token_approx": 219
+    },
+    {
+      "chunk_id": "triton_020",
+      "source": "triton",
+      "section": "14. Quick Reference: Configuration File (config.pbtxt)",
+      "doc_link": "https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/index.html",
+      "content": "Every model in Triton's repository needs a config.pbtxt:\n\nLast updated from official NVIDIA Triton documentation. For the latest, see: https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/index.html",
+      "char_count": 222,
+      "token_approx": 55
+    },
+    {
+      "chunk_id": "tensorrt_000",
+      "source": "tensorrt",
+      "section": "NVIDIA TensorRT — RAG Knowledge Base",
+      "doc_link": "https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html",
+      "content": "Source: [NVIDIA TensorRT Official Documentation](https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html) \nCategory: Inference Optimization, GPU Acceleration, Model Compilation \nTool Identity: TensorRT is NVIDIA's inference optimization SDK — it takes a trained model and produces a highly optimized, GPU-specific engine for maximum inference speed.",
+      "char_count": 366,
+      "token_approx": 91
+    },
+    {
+      "chunk_id": "tensorrt_001",
+      "source": "tensorrt",
+      "section": "1. What is TensorRT?",
+      "doc_link": "https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html",
+      "content": "NVIDIA TensorRT is a high-performance deep learning inference SDK that optimizes trained models for deployment on NVIDIA GPUs. It is not a training framework — it is purely an optimization and runtime layer.\n\nWhat TensorRT does:\n1. Takes a trained model (from PyTorch, TensorFlow, ONNX, etc.)\n2. Applies graph optimizations, layer fusions, kernel auto-tuning\n3. Produces a serialized \"engine\" (a .plan file) optimized for a specific GPU\n4. Runs inference with that engine at maximum throughput and minimum latency\n\nCurrent version: TensorRT 10.x (TensorRT 11.0 coming soon with modernized APIs)",
+      "char_count": 594,
+      "token_approx": 148
+    },
+    {
+      "chunk_id": "tensorrt_002",
+      "source": "tensorrt",
+      "section": "2. When to Use TensorRT (Decision Guide)",
+      "doc_link": "https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html",
+      "content": "Use TensorRT when you need to:\n\nTensorrt supports the following use case: Maximize inference speed on NVIDIA GPU. This is handled by Kernel auto-tuning, layer fusion, graph optimization.\nTensorrt supports the following use case: Reduce model memory footprint. This is handled by INT8/FP8/FP4 quantization.\nTensorrt supports the following use case: Deploy production LLMs at scale. This is handled by TensorRT-LLM (TRT-LLM).\nTensorrt supports the following use case: Run models with mixed precision. This is handled by FP16/BF16/INT8 mixed precision.\nTensorrt supports the following use case: Support models with variable input sizes. This is handled by Dynamic Shapes.\nTensorrt supports the following use case: Partition GPU for multiple isolated workloads. This is handled by MIG (Multi-Instance GPU) support.\n\nTensorRT vs Triton vs NeMo — Quick Rule:\n- Need to optimize a model for GPU inference → TensorRT\n- Need to serve a model with an API → Triton (which uses TensorRT as a backend)\n- Need to train or fine-tune a model → NeMo\n- The natural stack: NeMo trains → TensorRT optimizes → Triton serves",
+      "char_count": 1102,
+      "token_approx": 275
+    },
+    {
+      "chunk_id": "tensorrt_003",
+      "source": "tensorrt",
+      "section": "Phase 1: Build Phase (Offline — done once)",
+      "doc_link": "https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html",
+      "content": "What the Builder does:\n- Eliminates dead computations\n- Folds constants\n- Fuses layers (e.g., Conv + BN + ReLU → single kernel)\n- Selects the fastest CUDA kernel for each operation\n- Applies precision reduction (FP16, INT8) where safe\n- Generates CUDA kernels tuned for the specific GPU\n\n> ⚠️ Important: The build phase can take minutes to hours for large models. This is expected — it's a one-time cost.",
+      "char_count": 404,
+      "token_approx": 101
+    },
+    {
+      "chunk_id": "tensorrt_004",
+      "source": "tensorrt",
+      "section": "Supported Data Types",
+      "doc_link": "https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html",
+      "content": "Tensorrt supports the FP32 data type (32 bits), typically used for Default, maximum accuracy.\nTensorrt supports the TF32 data type (19 bits), typically used for Ampere GPUs, good accuracy/speed balance.\nTensorrt supports the FP16 data type (16 bits), typically used for Great speedup on tensor cores, minimal accuracy loss.\nTensorrt supports the BF16 data type (16 bits), typically used for Better dynamic range than FP16 for LLMs.\nTensorrt supports the FP8 data type (8 bits), typically used for Hopper GPUs, major speedup for LLMs.\nTensorrt supports the FP4 data type (4 bits), typically used for Blackwell GPUs, extreme compression.\nTensorrt supports the INT8 data type (8 bits), typically used for Legacy quantization, requires calibration.\nTensorrt supports the INT4 data type (4 bits), typically used for Weight-only quantization.\nTensorrt supports the INT32 data type (32 bits), typically used for Integer operations.\nTensorrt supports the BOOL data type (1 bits), typically used for Boolean logic.",
+      "char_count": 1005,
+      "token_approx": 251
+    },
+    {
+      "chunk_id": "tensorrt_005",
+      "source": "tensorrt",
+      "section": "Strong Typing vs Weak Typing",
+      "doc_link": "https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html",
+      "content": "In Tensorrt, Strong Typing mode is used for TensorRT statically infers types; no automatic precision changes.\nIn Tensorrt, Weak Typing mode is used for TensorRT may substitute lower precision for speed.\n\nBest practice: Use strongly typed networks for better precision control, faster build times, and future compatibility.",
+      "char_count": 322,
+      "token_approx": 80
+    },
+    {
+      "chunk_id": "tensorrt_006",
+      "source": "tensorrt",
+      "section": "5. Dynamic Shapes",
+      "doc_link": "https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html",
+      "content": "By default, TensorRT optimizes for fixed input shapes. Dynamic Shapes allow the engine to handle variable input sizes at runtime.",
+      "char_count": 129,
+      "token_approx": 32
+    },
+    {
+      "chunk_id": "tensorrt_007",
+      "source": "tensorrt",
+      "section": "How it works:",
+      "doc_link": "https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html",
+      "content": "Define one or more OptimizationProfile with:\n- Minimum shape — smallest allowed input\n- Optimal shape — shape TensorRT optimizes for\n- Maximum shape — largest allowed input\n\nTensorRT generates kernels valid across the entire [min, max] range, fastest at the optimal point.",
+      "char_count": 272,
+      "token_approx": 68
+    },
+    {
+      "chunk_id": "tensorrt_008",
+      "source": "tensorrt",
+      "section": "7. TensorRT-LLM (TRT-LLM)",
+      "doc_link": "https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html",
+      "content": "TensorRT-LLM is a specialized, open-source library built on top of TensorRT specifically for large language models.\n\nWhat TRT-LLM adds over vanilla TensorRT:\n- LLM-specific optimizations: in-flight batching, paged KV cache, speculative decoding\n- Pre-built support for popular LLM architectures (LLaMA, Mistral, GPT, Falcon, Gemma, etc.)\n- Easy Python API for building TensorRT engines for LLMs\n- Integration with Triton via the TRT-LLM backend",
+      "char_count": 444,
+      "token_approx": 111
+    },
+    {
+      "chunk_id": "tensorrt_009",
+      "source": "tensorrt",
+      "section": "TRT-LLM Key Features",
+      "doc_link": "https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html",
+      "content": "In-Flight Batching: Process requests mid-generation without waiting for batch completion.\nPaged KV Cache: Efficient memory management for attention key-value pairs (like OS paging).\nSpeculative Decoding: Small model predicts; large model verifies — faster token generation.\nChunked Prefill: Split long context into chunks for better batching during prefill.\nMulti-GPU Support: Tensor parallelism and pipeline parallelism across multiple GPUs.\nLoRA Support: Serve multiple fine-tuned adapters from one base model at runtime.\nQuantization: INT8, FP8, INT4 with NVIDIA Model Optimizer.",
+      "char_count": 582,
+      "token_approx": 145
+    },
+    {
+      "chunk_id": "tensorrt_010",
+      "source": "tensorrt",
+      "section": "Step 1: Convert model to TensorRT engine",
+      "doc_link": "https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html",
+      "content": "python convertcheckpoint.py --modeldir llama-3-8b --output_dir ./ckpt\n\ntrtllm-build --checkpoint_dir ./ckpt \\\n --output_dir ./engine \\\n --gemm_plugin float16 \\\n --gptattentionplugin float16 \\\n --maxbatchsize 8 \\\n --maxinputlen 2048 \\\n --maxoutputlen 512",
+      "char_count": 253,
+      "token_approx": 63
+    },
+    {
+      "chunk_id": "tensorrt_011",
+      "source": "tensorrt",
+      "section": "8. Key Tools in the TensorRT Ecosystem",
+      "doc_link": "https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html",
+      "content": "In the Tensorrt ecosystem, trtexec is used for CLI tool: benchmark, build engines, generate timing caches.\nIn the Tensorrt ecosystem, Polygraphy is used for Debug, compare outputs across backends, constant folding.\nIn the Tensorrt ecosystem, ONNX-GraphSurgeon is used for Edit ONNX graphs: replace subgraphs, add plugins.\nIn the Tensorrt ecosystem, Model Optimizer is used for Quantization, pruning, distillation for TensorRT deployment.\nIn the Tensorrt ecosystem, Torch-TensorRT is used for Compile PyTorch models with TensorRT.\nIn the Tensorrt ecosystem, Nsight Systems is used for Profile TensorRT applications end-to-end.\nIn the Tensorrt ecosystem, GenAI-Perf is used for Benchmark LLMs served by Triton.",
+      "char_count": 708,
+      "token_approx": 177
+    },
+    {
+      "chunk_id": "tensorrt_012",
+      "source": "tensorrt",
+      "section": "9. Multi-Instance GPU (MIG)",
+      "doc_link": "https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html",
+      "content": "MIG (available on Ampere A100 and later) partitions a single GPU into smaller, isolated GPU instances.\n\nUse with TensorRT:\n- If your model has low GPU utilization, MIG can run multiple smaller models on isolated GPU slices\n- Each MIG slice has dedicated compute and memory with quality-of-service guarantees\n- No interference between workloads on different MIG slices\n- Optimal partitioning is application-specific",
+      "char_count": 414,
+      "token_approx": 103
+    },
+    {
+      "chunk_id": "tensorrt_013",
+      "source": "tensorrt",
+      "section": "10. Multi-Device Inference (Preview)",
+      "doc_link": "https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html",
+      "content": "TensorRT 10.x introduces multi-GPU inference support:\n\nDistCollective: Distributed collective ops (AllReduce, AllGather, Broadcast) via NCCL.\nMulti-device attention: Split KV sequence across GPUs with context parallelism.\n\nThis enables serving models too large for a single GPU.",
+      "char_count": 278,
+      "token_approx": 69
+    },
+    {
+      "chunk_id": "tensorrt_014",
+      "source": "tensorrt",
+      "section": "11. Compatibility and Versioning",
+      "doc_link": "https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html",
+      "content": "TensorRT uses semantic versioning (MAJOR.MINOR.PATCH):\n- MAJOR changes → incompatible API/ABI changes\n- MINOR changes → backward-compatible additions\n- PATCH changes → backward-compatible bug fixes\n\nEngine compatibility:\n- By default, engines are tied to: OS + CPU architecture + GPU model + TensorRT version\n- For forward compatibility: Use version compatibility settings in the builder\n- Serialized engines are not compatible across TensorRT versions by default\n- Calibration caches: Generally reusable within a major version\n\nDeprecation policy:\n- 12-month migration period after any API is deprecated\n- C++ APIs marked with TRTDEPRECATEDAPI / TRT_DEPRECATED macros\n- Python APIs issue DeprecationWarning at runtime",
+      "char_count": 718,
+      "token_approx": 179
+    },
+    {
+      "chunk_id": "tensorrt_015",
+      "source": "tensorrt",
+      "section": "Build Phase Memory",
+      "doc_link": "https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html",
+      "content": "- TensorRT allocates device memory for timing kernel candidates\n- Control via IBuilderConfig::setMemoryPoolLimit() (workspace size)\n- At least two copies of weights in host memory during build",
+      "char_count": 192,
+      "token_approx": 48
+    },
+    {
+      "chunk_id": "tensorrt_016",
+      "source": "tensorrt",
+      "section": "Runtime Phase Memory",
+      "doc_link": "https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html",
+      "content": "- Engine allocates device memory for model weights upon deserialization\n- ExecutionContext uses two memory types:\n - Persistent memory — per-context state (e.g., convolution edge masks)\n - Enqueue memory — intermediate activations + scratch memory during inference\n- Use ICudaEngine::getDeviceMemorySizeV2() to query required memory\n- Weight streaming — for models larger than GPU memory, stream weights from host to device at inference time (latency tradeoff)\n\nPerformance tip: Enable CUDA lazy loading:\n\nThis significantly reduces peak GPU and host memory usage and speeds up TensorRT initialization.",
+      "char_count": 602,
+      "token_approx": 150
+    },
+    {
+      "chunk_id": "tensorrt_017",
+      "source": "tensorrt",
+      "section": "13. Threading Model",
+      "doc_link": "https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html",
+      "content": "TensorRT objects are not thread-safe by default. The safe concurrency pattern:\n\n✅ Safe patterns:\n- Different threads → different ExecutionContext (from the same engine)\n- Non-modifying operations on an engine from multiple threads\n- Creating contexts from an engine in multiple threads\n- Deserializing engines in parallel\n\n❌ Not safe:\n- Sharing a single ExecutionContext across threads\n- Using multiple builders on the same GPU (timing interference)",
+      "char_count": 449,
+      "token_approx": 112
+    },
+    {
+      "chunk_id": "tensorrt_018",
+      "source": "tensorrt",
+      "section": "14. Runtime Options (Library Selection)",
+      "doc_link": "https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html",
+      "content": "Tensorrt — Library: libnvinfer.so; Size: Full; Use Case: Default; all operator implementations.\nTensorrt — Library: libnvinfer_lean.so; Size: Smaller; Use Case: Run version-compatible engines only.\nTensorrt — Library: libnvinfer_dispatch.so; Size: Smallest; Use Case: Shim that loads lean runtime; max compatibility.\n\nPython equivalents: tensorrt, tensorrtlean, tensorrtdispatch",
+      "char_count": 378,
+      "token_approx": 94
+    },
+    {
+      "chunk_id": "tensorrt_019",
+      "source": "tensorrt",
+      "section": "16. Common Misconceptions",
+      "doc_link": "https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html",
+      "content": "Common misconception about Tensorrt: \"\"TensorRT works on any GPU\"\" — The correct understanding is: TensorRT requires NVIDIA GPUs; Turing (SM 7.5+) for best results.\nCommon misconception about Tensorrt: \"\"TensorRT engines are portable\"\" — The correct understanding is: By default, engines are GPU + TensorRT version specific.\nCommon misconception about Tensorrt: \"\"Weak typing is fine for new projects\"\" — The correct understanding is: Weak typing is deprecated in 10.12; use strong typing.\nCommon misconception about Tensorrt: \"\"TensorRT can train models\"\" — The correct understanding is: TensorRT is inference-only; use PyTorch/NeMo for training.\nCommon misconception about Tensorrt: \"\"Quantization always hurts accuracy\"\" — The correct understanding is: With proper calibration or QAT, INT8/FP8 accuracy loss is often negligible.\nCommon misconception about Tensorrt: \"\"TRT-LLM is the same as TensorRT\"\" — The correct understanding is: TRT-LLM is a higher-level library built on TensorRT specifically for LLMs.\n\nLast updated from official NVIDIA TensorRT documentation. For the latest, see: https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html",
+      "char_count": 1164,
+      "token_approx": 291
+    }
+  ]
+}
